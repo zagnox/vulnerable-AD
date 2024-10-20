@@ -211,6 +211,37 @@ function VulnAD-DCSync {
         Write-Info "Giving DCSync to : $randomuser"
     }
 }
+function VulnAD-CreateSMBShare {
+    # Define the folder path
+    $folderPath = "C:\Development"
+
+    # Check if folder exists, if not create it
+    if (-not (Test-Path -Path $folderPath)) {
+        New-Item -Path $folderPath -ItemType Directory -Force
+        Write-Good "Created folder at $folderPath"
+    } else {
+        Write-Info "Folder $folderPath already exists"
+    }
+
+    # Define the share name
+    $shareName = "DevelopmentShare"
+
+    # Check if the SMB share already exists
+    if (-not (Get-SmbShare -Name $shareName -ErrorAction SilentlyContinue)) {
+        New-SmbShare -Name $shareName -Path $folderPath -FullAccess Everyone -Description "Anonymous SMB Share for Development"
+
+        Set-SmbServerConfiguration -EnableSMB1Protocol $true -Force
+        Set-SmbServerConfiguration -EnableSMB2Protocol $true -Force
+        Set-SmbServerConfiguration -RequireSecuritySignature $false -Force
+        Set-SmbServerConfiguration -EnableAuthenticateUserSharing $false -Force
+
+        Grant-SmbShareAccess -Name $shareName -AccountName 'Everyone' -AccessRight Full -Force
+
+        Write-Good "SMB share '$shareName' created with anonymous access"
+    } else {
+        Write-Info "SMB share '$shareName' already exists"
+    }
+}
 function VulnAD-DisableSMBSigning {
     Set-SmbClientConfiguration -RequireSecuritySignature 0 -EnableSecuritySignature 0 -Confirm -Force
 }
@@ -251,4 +282,5 @@ function Invoke-VulnAD {
     Write-Good "DCSync Done"
     VulnAD-DisableSMBSigning
     Write-Good "SMB Signing Disabled"
+    VulnAD-CreateSMBShare
 }
